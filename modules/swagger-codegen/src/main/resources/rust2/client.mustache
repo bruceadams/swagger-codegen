@@ -8,7 +8,7 @@ extern crate chrono;
 use hyper;
 use hyper::client::IntoUrl;
 use hyper::mime;
-use hyper::header::{Headers, ContentType};
+use hyper::header::{Authorization, Headers, ContentType};
 use hyper::mime::{Mime, TopLevel, SubLevel, Attr, Value};
 use hyper::Url;
 use self::hyper_openssl::openssl;
@@ -25,8 +25,8 @@ use std::sync::Arc;
 use std::collections::HashMap;
 #[allow(unused_imports)]
 use swagger;
-
 use swagger::{Context, ApiError, XSpanId};
+use swagger::auth::AuthData;
 
 use {Api{{#apiInfo}}{{#apis}}{{#operations}}{{#operation}},
      {{operationId}}Response{{/operation}}{{/operations}}{{/apis}}{{/apiInfo}}
@@ -67,6 +67,22 @@ impl Client {
             base_path: into_base_path(base_path, Some("http"))?,
             hyper_client: Arc::new(hyper::client::Client::new()),
         })
+    }
+
+    pub fn try_new_https_simple<T>(base_path: T)
+                            -> Result<Client, ClientInitError>
+        where T: IntoUrl
+    {
+        // SSL implementation
+        let mut ssl = openssl::ssl::SslConnectorBuilder::new(openssl::ssl::SslMethod::tls())?;
+        let ssl = hyper_openssl::OpensslClient::from(ssl.build());
+        let connector = hyper::net::HttpsConnector::new(ssl);
+        let hyper_client = hyper::client::Client::with_connector(connector);
+
+        Ok(Client {
+                base_path: into_base_path(base_path, Some("https"))?,
+                hyper_client: Arc::new(hyper_client)
+            })
     }
 
     pub fn try_new_https<T, CA>(base_path: T,
@@ -196,6 +212,13 @@ impl Api for Client {
 
         custom_headers.set(hyper::header::ContentType::json());
 {{/bodyParam}}
+        if let Some(ref auth) = context.auth_data {
+            match auth.clone() {
+                AuthData::Basic(h) => custom_headers.set(Authorization(h)),
+                AuthData::Bearer(h) => custom_headers.set(Authorization(h)),
+                AuthData::ApiKey(h) => custom_headers.set(Authorization(h)),
+            }
+        };
         context.x_span_id.as_ref().map(|header| custom_headers.set(XSpanId(header.clone())));
 {{#headerParams}}{{#-first}}
         // Header parameters
