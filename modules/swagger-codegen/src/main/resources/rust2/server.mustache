@@ -204,7 +204,7 @@ fn add_routes<T>(router: &mut Router, api: T) where T: Api + Send + Sync + Clone
     {{/isFormParam}}
 {{/allParams}}
 
-                match api.{{#vendorExtensions}}{{operation_id}}{{/vendorExtensions}}({{#allParams}}param_{{paramName}}{{#isListContainer}}.as_ref(){{/isListContainer}}, {{/allParams}}context).wait() {
+                match api.{{#vendorExtensions}}{{operation_id}}{{/vendorExtensions}}({{#allParams}}param_{{paramName}}{{#isListContainer}}.as_ref(){{/isListContainer}}, {{/allParams}}).wait() {
                     Ok(rsp) => match rsp {
 {{#responses}}
                         {{operationId}}Response::{{message}}{{#dataType}}{{^headers}}(body){{/headers}}{{#headers}}{{#-first}}{ body{{/-first}}{{/headers}}{{/dataType}}{{#headers}}{{#-first}}{{^dataType}}{ {{/dataType}}{{#dataType}}, {{/dataType}}{{/-first}}{{^-first}}, {{/-first}}{{name}}{{#-last}} }{{/-last}}{{/headers}} => {
