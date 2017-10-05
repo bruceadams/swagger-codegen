@@ -85,15 +85,17 @@ impl Client {
                             -> Result<Client, ClientInitError>
         where T: IntoUrl
     {
-        // SSL implementation
-        let mut ssl = openssl::ssl::SslConnectorBuilder::new(openssl::ssl::SslMethod::tls())?;
-        let ssl = hyper_openssl::OpensslClient::from(ssl.build());
-        let connector = hyper::net::HttpsConnector::new(ssl);
-        let hyper_client = hyper::client::Client::with_connector(connector);
+        let https_hyper_client = move || {
+            // SSL implementation
+            let mut ssl = openssl::ssl::SslConnectorBuilder::new(openssl::ssl::SslMethod::tls()).unwrap();
+            let ssl = hyper_openssl::OpensslClient::from(ssl.build());
+            let connector = hyper::net::HttpsConnector::new(ssl);
+            hyper::client::Client::with_connector(connector)
+        };
 
         Ok(Client {
                 base_path: into_base_path(base_path, Some("https"))?,
-                hyper_client: Arc::new(hyper_client)
+                hyper_client: Arc::new(https_hyper_client),
             })
     }
 
